@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 import google.generativeai as genai
+import asyncio
 
 load_dotenv()
 
@@ -11,7 +12,7 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 genai.configure(api_key=GOOGLE_API_KEY)
 
-MODEL = "gemini-2.0-flash"  # 무료 티어 지원
+MODEL = "gemini-2.0-flash"
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -19,7 +20,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 memory = {}
 
-def ask_ai(channel_id, user_msg):
+async def ask_ai(channel_id, user_msg):
     if channel_id not in memory:
         memory[channel_id] = []
 
@@ -36,7 +37,9 @@ def ask_ai(channel_id, user_msg):
         chat_history.append({"role": role, "parts": [msg["content"]]})
 
     chat = model.start_chat(history=chat_history)
-    response = chat.send_message(user_msg)
+
+    # 블로킹 함수를 async로 실행
+    response = await asyncio.to_thread(chat.send_message, user_msg)
     reply = response.text
 
     history.append({"role": "user", "content": user_msg})
@@ -69,10 +72,13 @@ async def on_message(message):
         return
 
     async with message.channel.typing():
-        reply = ask_ai(message.channel.id, content)
-        if len(reply) > 2000:
-            reply = reply[:1990] + "..."
-        await message.reply(reply)
+        try:
+            reply = await ask_ai(message.channel.id, content)
+            if len(reply) > 2000:
+                reply = reply[:1990] + "..."
+            await message.reply(reply)
+        except Exception as e:
+            await message.reply(f"오류 발생: {e}")
 
     await bot.process_commands(message)
 
