@@ -1,32 +1,30 @@
 import os
 import discord
-import random
 from discord.ext import commands
 from dotenv import load_dotenv
-from groq import Groq
+from openai import AsyncOpenAI  # OpenRouter는 OpenAI 호환 API
 
 load_dotenv()
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-client = Groq(api_key=GROQ_API_KEY)
+# OpenRouter 클라이언트 (Gemma 4 12B 지원)
+client = AsyncOpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=OPENROUTER_API_KEY,
+)
 
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "google/gemma-4-12b-it"
 
 intents = discord.Intents.default()
 intents.message_content = True
-
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# 🧠 채널 기억 저장
+# 채널별 대화 기억
 memory = {}
 
-# ⚡ 반응 확률 (0~1)
-REPLY_CHANCE = 0.35
-
-
-def ask_ai(channel_id, user_msg):
+async def ask_ai(channel_id, user_msg):
     if channel_id not in memory:
         memory[channel_id] = []
 
@@ -38,14 +36,14 @@ def ask_ai(channel_id, user_msg):
             "content": "너는 친구처럼 말하는 AI야. 반말, 짧고 자연스럽게 말해. 너무 AI처럼 말하지 마."
         }
     ]
-
     messages += history[-12:]
     messages.append({"role": "user", "content": user_msg})
 
-    response = client.chat.completions.create(
+    response = await client.chat.completions.create(
         model=MODEL,
         messages=messages,
-        temperature=0.8
+        temperature=0.8,
+        max_tokens=1000,
     )
 
     reply = response.choices[0].message.content
@@ -53,49 +51,40 @@ def ask_ai(channel_id, user_msg):
     # 기억 저장
     history.append({"role": "user", "content": user_msg})
     history.append({"role": "assistant", "content": reply})
-
     memory[channel_id] = history
 
     return reply
 
-
 @bot.event
 async def on_ready():
     print(f"🔥 봇 실행됨: {bot.user}")
-
 
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
 
+    # ✅ 봇에게 답장(Reply)할 때만 반응
+    is_reply_to_bot = (
+        message.reference is not None
+        and message.reference.resolved is not None
+        and message.reference.resolved.author == bot.user
+    )
+
+    if not is_reply_to_bot:
+        await bot.process_commands(message)
+        return
+
     content = message.content.strip()
-
-    # 🍜 1. "떡볶이" 있으면 무조건 반응
-    force_reply = False
-
-    if content.startswith("떡볶이"):
-        force_reply = True
-        content = content.replace("떡볶이", "", 1).strip()
-
-    # 🍜 2. 없으면 랜덤 확률로 반응
-    if not force_reply:
-        if random.random() > REPLY_CHANCE:
-            return
-
-    # 아무 내용 없으면 무시
     if not content:
         return
 
     async with message.channel.typing():
-        reply = ask_ai(message.channel.id, content)
-
+        reply = await ask_ai(message.channel.id, content)
         if len(reply) > 2000:
             reply = reply[:1990] + "..."
-
         await message.reply(reply)
 
     await bot.process_commands(message)
-
 
 bot.run(DISCORD_TOKEN)
