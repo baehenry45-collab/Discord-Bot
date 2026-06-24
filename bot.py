@@ -2,53 +2,43 @@ import os
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-from openai import AsyncOpenAI  # OpenRouter는 OpenAI 호환 API
+import google.generativeai as genai
 
 load_dotenv()
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# OpenRouter 클라이언트 (Gemma 4 12B 지원)
-client = AsyncOpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=OPENROUTER_API_KEY,
-)
+genai.configure(api_key=GOOGLE_API_KEY)
 
-MODEL = "google/gemma-4-12b-it"
+MODEL = "gemini-2.0-flash"  # 무료 티어 지원
 
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# 채널별 대화 기억
 memory = {}
 
-async def ask_ai(channel_id, user_msg):
+def ask_ai(channel_id, user_msg):
     if channel_id not in memory:
         memory[channel_id] = []
 
     history = memory[channel_id]
 
-    messages = [
-        {
-            "role": "system",
-            "content": "너는 친구처럼 말하는 AI야. 반말, 짧고 자연스럽게 말해. 너무 AI처럼 말하지 마."
-        }
-    ]
-    messages += history[-12:]
-    messages.append({"role": "user", "content": user_msg})
-
-    response = await client.chat.completions.create(
-        model=MODEL,
-        messages=messages,
-        temperature=0.8,
-        max_tokens=1000,
+    model = genai.GenerativeModel(
+        model_name=MODEL,
+        system_instruction="너는 친구처럼 말하는 AI야. 반말, 짧고 자연스럽게 말해. 너무 AI처럼 말하지 마."
     )
 
-    reply = response.choices[0].message.content
+    chat_history = []
+    for msg in history[-12:]:
+        role = "user" if msg["role"] == "user" else "model"
+        chat_history.append({"role": role, "parts": [msg["content"]]})
 
-    # 기억 저장
+    chat = model.start_chat(history=chat_history)
+    response = chat.send_message(user_msg)
+    reply = response.text
+
     history.append({"role": "user", "content": user_msg})
     history.append({"role": "assistant", "content": reply})
     memory[channel_id] = history
@@ -64,7 +54,6 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    # ✅ 봇에게 답장(Reply)할 때만 반응
     is_reply_to_bot = (
         message.reference is not None
         and message.reference.resolved is not None
@@ -80,7 +69,7 @@ async def on_message(message):
         return
 
     async with message.channel.typing():
-        reply = await ask_ai(message.channel.id, content)
+        reply = ask_ai(message.channel.id, content)
         if len(reply) > 2000:
             reply = reply[:1990] + "..."
         await message.reply(reply)
