@@ -1,3 +1,222 @@
+import asyncio
+import json
+import logging
+import os
+import re
+import time
+import urllib.error
+import urllib.request
+from collections import defaultdict, deque
+from pathlib import Path
+
+import discord
+from discord.ext import commands
+from dotenv import load_dotenv
+from google import genai
+from google.genai import types
+
+load_dotenv()
+
+
+def env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite")
+
+AI_BACKEND = os.getenv("AI_BACKEND", "ollama").lower()
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
+OLLAMA_DEEP_MODEL = os.getenv("OLLAMA_DEEP_MODEL", OLLAMA_MODEL)
+OLLAMA_TIMEOUT_SECONDS = env_int("OLLAMA_TIMEOUT_SECONDS", 90)
+
+BOT_TRIGGER = os.getenv("BOT_TRIGGER", "\uc18c\ub0ad\uc544")
+BOT_NAME = os.getenv("BOT_NAME", BOT_TRIGGER.removesuffix("\uc544"))
+
+MAX_HISTORY_MESSAGES = env_int("MAX_HISTORY_MESSAGES", 4)
+MAX_STORED_HISTORY = env_int("MAX_STORED_HISTORY", 16)
+MAX_LEARNED_ITEMS = env_int("MAX_LEARNED_ITEMS", 20)
+MAX_LEARNED_CHARS = env_int("MAX_LEARNED_CHARS", 90)
+MAX_INPUT_CHARS = env_int("MAX_INPUT_CHARS", 700)
+MAX_OUTPUT_TOKENS = env_int("MAX_OUTPUT_TOKENS", 180)
+MAX_DEEP_OUTPUT_TOKENS = env_int("MAX_DEEP_OUTPUT_TOKENS", 320)
+QUOTA_COOLDOWN_SECONDS = env_int("GEMINI_QUOTA_COOLDOWN_SECONDS", 60)
+
+APP_LOG_LEVEL = os.getenv("APP_LOG_LEVEL", "WARNING").upper()
+DISCORD_LOG_LEVEL = os.getenv("DISCORD_LOG_LEVEL", "WARNING").upper()
+LEARNED_FILE = Path(os.getenv("LEARNED_FILE", "learned_memory.json"))
+
+CMD_LEARN = "\ud559\uc2b5"
+CMD_LEARN_LIST = "\ud559\uc2b5\ubaa9\ub85d"
+CMD_LEARN_DELETE = "\ud559\uc2b5\uc0ad\uc81c"
+CMD_FEEDBACK = "\ud53c\ub4dc\ubc31"
+
+
+def configure_logging() -> None:
+    logging.basicConfig(
+        level=getattr(logging, APP_LOG_LEVEL, logging.WARNING),
+        format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
+    )
+    discord_level = getattr(logging, DISCORD_LOG_LEVEL, logging.WARNING)
+    for name in ("discord", "discord.client", "discord.gateway", "discord.http"):
+        logging.getLogger(name).setLevel(discord_level)
+
+
+configure_logging()
+logger = logging.getLogger("discord_gemini_bot")
+
+if not DISCORD_TOKEN:
+    raise RuntimeError("DISCORD_TOKEN is missing. Add it to Railway Variables.")
+
+if AI_BACKEND == "gemini" and not GOOGLE_API_KEY:
+    raise RuntimeError("GOOGLE_API_KEY is missing. Add it to Railway Variables.")
+
+client = genai.Client(api_key=GOOGLE_API_KEY) if GOOGLE_API_KEY else None
+
+intents = discord.Intents.default()
+intents.message_content = True
+bot = commands.Bot(command_prefix="/", intents=intents)
+
+memory = defaultdict(lambda: deque(maxlen=MAX_STORED_HISTORY))
+learned = deque(maxlen=MAX_LEARNED_ITEMS)
+channel_locks = defaultdict(asyncio.Lock)
+quota_blocked_until = 0.0
+
+
+def clean_text(text: str, limit: int) -> str:
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 3)].rstrip() + "..."
+
+
+def load_learned() -> None:
+    if not LEARNED_FILE.exists():
+        return
+
+    try:
+        data = json.loads(LEARNED_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        logger.warning("Could not load learned memory: %s", error)
+        return
+
+    if not isinstance(data, list):
+        return
+
+    for item in data[-MAX_LEARNED_ITEMS:]:
+        if isinstance(item, str) and item.strip():
+            learned.append(clean_text(item, MAX_LEARNED_CHARS))
+
+
+def save_learned() -> None:
+    try:
+        LEARNED_FILE.write_text(
+            json.dumps(list(learned), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except OSError as error:
+        logger.warning("Could not save learned memory: %s", error)
+
+
+def wants_deeper_answer(text: str) -> bool:
+    deep_words = (
+        "\uc124\uba85",
+        "\uc790\uc138",
+        "\uc790\uc138\ud788",
+        "\ubd84\uc11d",
+        "\ucf54\ub4dc",
+        "\uc218\uc815",
+        "\uace0\uccd0",
+        "\uc624\ub958",
+        "\uc65c",
+        "\uc5b4\ub5bb\uac8c",
+        "\ubc29\ubc95",
+        "\ucd94\ucc9c",
+    )
+    lowered = text.lower()
+    return any(word in lowered for word in deep_words) or len(text) > 180
+
+
+def local_quick_reply(text: str) -> str | None:
+    normalized = re.sub(r"\s+", "", text).lower()
+    if normalized in {"말", "말해", "대답", "야", "ㅎㅇ", "하이", "안녕"}:
+        return "\uc5b4, \ub098 \uc788\uc5b4. \ubb50 \ud574\uc904\uae4c?"
+    if "\uc624\ud504\ub77c\uc778" in normalized:
+        return "\uc811\uc18d\uc740 \ub418\uc5b4 \uc788\uc5b4. \ub2e4\ub9cc AI \ubaa8\ub378 \uc694\uccad\uc774 \ub9c9\ud788\uba74 \ub2f5\uc774 \ub290\ub9b4 \uc218 \uc788\uc5b4."
+    if "\ud1a0\ud070" in normalized and ("\ub192" in normalized or "\ub9ce" in normalized or "\uc18c\ube44" in normalized):
+        return "\ub9de\uc544, \uc9c0\uae08\uc740 \ud638\ucd9c\uc744 \uc544\ub07c\ub294 \ucabd\uc73c\ub85c \ubc14\uafb8\ub294 \uac8c \uc88b\uc544. \uc9e7\uc740 \ub9d0\uc740 \ub85c\uceec \ub2f5\ubcc0\uc73c\ub85c \ucc98\ub9ac\ud558\uace0, \ud544\uc694\ud560 \ub54c\ub9cc \ubaa8\ub378\uc744 \ubd80\ub974\uac8c \ud560\uac8c."
+    return None
+
+
+def build_system_prompt(user_msg: str) -> str:
+    style = (
+        f"You are {BOT_NAME}, a Discord AI friend. "
+        "Reply in Korean unless the user uses another language. "
+        "Use natural casual banmal, warm but not childish. "
+        "Answer the user's real intent first. Avoid filler. "
+        "If unsure, say so honestly. "
+    )
+
+    if wants_deeper_answer(user_msg):
+        style += (
+            "For troubleshooting, code, or explanation, give clear steps or compact bullets. "
+            "Keep it practical and specific. "
+        )
+    else:
+        style += "For casual chat, answer in 1-2 short sentences. "
+
+    if learned:
+        facts = "\n".join(f"- {item}" for item in learned)
+        style += "\nRemember these user preferences/facts:\n" + facts
+
+    return style
+
+
+def is_quota_error(error: Exception) -> bool:
+    err = str(error).lower()
+    return any(
+        keyword in err
+        for keyword in (
+            "resource_exhausted",
+            "429",
+            "quota",
+            "rate limit",
+            "rate-limit",
+            "exceeded your current quota",
+        )
+    )
+
+
+def get_retry_delay_seconds(error: Exception) -> int:
+    match = re.search(r"retryDelay['\"]?\s*:\s*['\"]?(\d+)s", str(error))
+    if match:
+        return max(5, int(match.group(1)))
+    return QUOTA_COOLDOWN_SECONDS
+
+
+def remove_bot_mention(content: str) -> str:
+    if not bot.user:
+        return content
+    content = content.replace(f"<@{bot.user.id}>", "")
+    content = content.replace(f"<@!{bot.user.id}>", "")
+    return content.strip()
+
+
+def to_gemini_contents(history, user_msg: str) -> list[types.Content]:
+    contents = []
+    for msg in list(history)[-MAX_HISTORY_MESSAGES:]:
+        contents.append(
+            types.Content(
+                role=msg["role"],
+                parts=[types.Part(text=msg["content"])],
+            )
+        )
+
     contents.append(
         types.Content(
             role="user",
