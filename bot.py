@@ -91,6 +91,8 @@ async def on_message(message):
     if message.author.bot:
         return
 
+    content = message.content.strip()
+
     # 멘션 감지
     is_mentioned = bot.user in message.mentions
 
@@ -104,12 +106,18 @@ async def on_message(message):
         except:
             pass
 
-    if not is_mentioned and not is_reply_to_bot:
+    # "떡볶이"로 시작하는 메시지 감지
+    starts_with_trigger = content.startswith("떡볶이")
+
+    if not is_mentioned and not is_reply_to_bot and not starts_with_trigger:
         await bot.process_commands(message)
         return
 
-    # 멘션 태그 제거
-    content = message.content.replace(f"<@{bot.user.id}>", "").replace(f"<@!{bot.user.id}>", "").strip()
+    # 트리거 단어/멘션 제거
+    if starts_with_trigger:
+        content = content[len("떡볶이"):].strip()
+    elif is_mentioned:
+        content = content.replace(f"<@{bot.user.id}>", "").replace(f"<@!{bot.user.id}>", "").strip()
 
     if not content:
         await message.reply("응? 뭐야")
