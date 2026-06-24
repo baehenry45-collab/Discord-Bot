@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 import asyncio
-import json
 
 load_dotenv()
 
@@ -19,14 +18,11 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
-# 채널별 대화 기억
 memory = {}
-
-# 학습 데이터 (봇 성격/지식 추가)
 learned = []
 
 def build_system_prompt():
-    base = "너는 친구처럼 말하는 AI야. 반말, 짧고 자연스럽게 말해. 너무 AI처럼 말하지 마."
+    base = "너는 떡볶이라는 이름의 AI야. 친구처럼 반말로 짧고 자연스럽게 말해. 너무 AI처럼 말하지 마."
     if learned:
         extra = "\n\n추가로 알고 있는 것들:\n" + "\n".join(f"- {x}" for x in learned)
         return base + extra
@@ -95,22 +91,31 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    # 봇에게 답장할 때만 반응
-    is_reply_to_bot = (
-        message.reference is not None
-        and message.reference.resolved is not None
-        and message.reference.resolved.author == bot.user
-    )
+    # 멘션 감지
+    is_mentioned = bot.user in message.mentions
 
-    if not is_reply_to_bot:
+    # 답장 감지
+    is_reply_to_bot = False
+    if message.reference and message.reference.message_id:
+        try:
+            ref_msg = await message.channel.fetch_message(message.reference.message_id)
+            if ref_msg.author == bot.user:
+                is_reply_to_bot = True
+        except:
+            pass
+
+    if not is_mentioned and not is_reply_to_bot:
         await bot.process_commands(message)
         return
 
-    content = message.content.strip()
+    # 멘션 태그 제거
+    content = message.content.replace(f"<@{bot.user.id}>", "").replace(f"<@!{bot.user.id}>", "").strip()
+
     if not content:
+        await message.reply("응? 뭐야")
         return
 
-    print(f"📨 답장 감지: {message.author} -> {content}")  # 디버그용
+    print(f"📨 반응: {message.author} -> {content}")
 
     async with message.channel.typing():
         try:
