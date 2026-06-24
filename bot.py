@@ -12,7 +12,7 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 client = genai.Client(api_key=GOOGLE_API_KEY)
-MODEL = "gemini-1.5-flash-8b"
+MODEL = "gemini-1.5-flash"
 
 intents = discord.Intents.default()
 intents.message_content = True
