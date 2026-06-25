@@ -33,7 +33,7 @@ def env_int(name: str, default: int) -> int:
 
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
 MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite")
 
 AI_BACKEND = os.getenv("AI_BACKEND", "ollama").lower()
@@ -42,8 +42,19 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
 OLLAMA_DEEP_MODEL = os.getenv("OLLAMA_DEEP_MODEL", OLLAMA_MODEL)
 OLLAMA_TIMEOUT_SECONDS = env_int("OLLAMA_TIMEOUT_SECONDS", 90)
 
-BOT_TRIGGER = os.getenv("BOT_TRIGGER", "\uc18c\ub0ad\uc544")
-BOT_NAME = os.getenv("BOT_NAME", BOT_TRIGGER.removesuffix("\uc544"))
+BOT_TRIGGER = os.getenv("BOT_TRIGGER", "\ub5a1\ubcf6\uc774")
+BOT_NAME = os.getenv("BOT_NAME", "\ub5a1\ubcf6\uc774")
+BOT_TRIGGERS = []
+for trigger in (
+    BOT_TRIGGER,
+    "\ub5a1\ubcf6\uc774",
+    "\ub5a1\ubcf6\uc544",
+    "\uc18c\ub0ad\uc544",
+    *os.getenv("BOT_TRIGGERS", "").split(","),
+):
+    trigger = trigger.strip()
+    if trigger and trigger not in BOT_TRIGGERS:
+        BOT_TRIGGERS.append(trigger)
 
 MAX_HISTORY_MESSAGES = env_int("MAX_HISTORY_MESSAGES", 4)
 MAX_STORED_HISTORY = env_int("MAX_STORED_HISTORY", 16)
@@ -83,10 +94,12 @@ if not DISCORD_TOKEN:
     raise RuntimeError("DISCORD_TOKEN is missing. Add it to Railway Variables.")
 
 if AI_BACKEND == "gemini" and not GOOGLE_API_KEY:
-    raise RuntimeError("GOOGLE_API_KEY is missing. Add it to Railway Variables.")
+    logger.warning("GOOGLE_API_KEY/GEMINI_API_KEY is missing. Falling back to local quick replies.")
+    AI_BACKEND = "local"
 
 if AI_BACKEND == "gemini" and genai is None:
-    raise RuntimeError("google-genai is missing. Run: pip install google-genai")
+    logger.warning("google-genai is missing. Falling back to local quick replies.")
+    AI_BACKEND = "local"
 
 client = genai.Client(api_key=GOOGLE_API_KEY) if GOOGLE_API_KEY and genai else None
 
@@ -98,6 +111,7 @@ memory = defaultdict(lambda: deque(maxlen=MAX_STORED_HISTORY))
 learned = deque(maxlen=MAX_LEARNED_ITEMS)
 channel_locks = defaultdict(asyncio.Lock)
 quota_blocked_until = 0.0
+gemini_invalid_key_until = 0.0
 
 
 def clean_text(text: str, limit: int) -> str:
@@ -165,6 +179,34 @@ def local_quick_reply(text: str) -> str | None:
     return None
 
 
+def local_quick_reply(text: str) -> str | None:
+    normalized = re.sub(r"\s+", "", text).lower()
+    if normalized in {"말", "말해", "대답", "야", "ㅎㅇ", "하이", "안녕"}:
+        return "어, 나 있어. 뭐 해줄까?"
+    if "오프라인" in normalized:
+        return "접속은 되어 있어. 다만 AI 모델 요청이 막히면 답이 늦을 수 있어."
+    if "토큰" in normalized and ("높" in normalized or "많" in normalized or "소비" in normalized):
+        return "맞아, 짧은 말은 모델 호출 없이 처리하고 필요한 질문만 모델에 보내는 쪽으로 줄이면 돼."
+    return None
+
+
+def degraded_ai_reply(user_msg: str) -> str:
+    quick_reply = local_quick_reply(user_msg)
+    if quick_reply:
+        return quick_reply
+    return (
+        "지금은 Gemini 키나 사용량 제한 때문에 간단 응답 모드야. "
+        "AI 답변까지 쓰려면 Railway Variables의 `GOOGLE_API_KEY`를 정상 키로 바꿔줘."
+    )
+
+
+def match_trigger(content: str) -> str | None:
+    for trigger in sorted(BOT_TRIGGERS, key=len, reverse=True):
+        if content.startswith(trigger):
+            return trigger
+    return None
+
+
 def build_system_prompt(user_msg: str) -> str:
     style = (
         f"You are {BOT_NAME}, a Discord AI friend. "
@@ -201,6 +243,15 @@ def is_quota_error(error: Exception) -> bool:
             "rate-limit",
             "exceeded your current quota",
         )
+    )
+
+
+def is_invalid_api_key_error(error: Exception) -> bool:
+    err = str(error).lower()
+    return (
+        "api_key_invalid" in err
+        or "api key not valid" in err
+        or "invalid api key" in err
     )
 
 
@@ -338,7 +389,7 @@ async def ask_ollama(channel_id: int, user_msg: str) -> str:
 
 
 async def ask_gemini(channel_id: int, user_msg: str) -> str:
-    global quota_blocked_until
+    global quota_blocked_until, gemini_invalid_key_until
 
     if genai is None:
         return "Gemini\ub97c \uc4f0\ub824\uba74 `pip install google-genai`\uac00 \ud544\uc694\ud574."
@@ -347,9 +398,11 @@ async def ask_gemini(channel_id: int, user_msg: str) -> str:
         return "Gemini API key\uac00 \uc5c6\uc5b4. `AI_BACKEND=ollama`\ub85c \uc4f0\uac70\ub098 `GOOGLE_API_KEY`\ub97c \ub123\uc5b4\uc918."
 
     now = time.monotonic()
+    if gemini_invalid_key_until > now:
+        return degraded_ai_reply(user_msg)
+
     if quota_blocked_until > now:
-        remain = int(quota_blocked_until - now)
-        return f"\uc9c0\uae08 Gemini \uc694\uccad \uc81c\ud55c\uc5d0 \uac78\ub838\uc5b4. {remain}\ucd08 \ub4a4\uc5d0 \ub2e4\uc2dc \ub9d0 \uac78\uc5b4\uc918."
+        return degraded_ai_reply(user_msg)
 
     user_msg = clean_text(user_msg, MAX_INPUT_CHARS)
     history = memory[channel_id]
@@ -370,11 +423,15 @@ async def ask_gemini(channel_id: int, user_msg: str) -> str:
             config=config,
         )
     except Exception as error:
+        if is_invalid_api_key_error(error):
+            gemini_invalid_key_until = time.monotonic() + HARD_QUOTA_COOLDOWN_SECONDS
+            logger.warning("Gemini API key is invalid; falling back to local quick replies")
+            return degraded_ai_reply(user_msg)
         if is_quota_error(error):
             delay = get_retry_delay_seconds(error)
             quota_blocked_until = time.monotonic() + delay
             logger.warning("Gemini quota/rate limit; cooling down for %ss", delay)
-            return f"\uc9c0\uae08 Gemini \ud55c\ub3c4\uac00 \ub9c9\ud600 \uc788\uc5b4. {delay}\ucd08 \ub4a4\uc5d0 \ub2e4\uc2dc \ud574\uc918."
+            return degraded_ai_reply(user_msg)
         raise
 
     reply = clean_text(
@@ -388,7 +445,13 @@ async def ask_gemini(channel_id: int, user_msg: str) -> str:
 
 
 async def ask_ai(channel_id: int, user_msg: str) -> str:
-    if AI_BACKEND in {"ollama", "local"}:
+    quick_reply = local_quick_reply(user_msg)
+    if quick_reply:
+        return quick_reply
+
+    if AI_BACKEND == "local":
+        return degraded_ai_reply(user_msg)
+    if AI_BACKEND == "ollama":
         return await ask_ollama(channel_id, user_msg)
     if AI_BACKEND == "gemini":
         return await ask_gemini(channel_id, user_msg)
@@ -429,6 +492,7 @@ async def status(ctx):
         await ctx.send(
             "AI status\n"
             f"- backend: `{AI_BACKEND}`\n"
+            f"- triggers: `{', '.join(BOT_TRIGGERS)}`\n"
             f"- ollama: `{OLLAMA_BASE_URL}`\n"
             f"- model: `{OLLAMA_MODEL}`\n"
             f"- deep model: `{OLLAMA_DEEP_MODEL}`"
@@ -438,6 +502,7 @@ async def status(ctx):
     await ctx.send(
         "AI status\n"
         f"- backend: `{AI_BACKEND}`\n"
+        f"- triggers: `{', '.join(BOT_TRIGGERS)}`\n"
         f"- gemini model: `{MODEL}`"
     )
 
@@ -490,7 +555,8 @@ async def on_message(message):
         return
 
     is_mentioned = bot.user in message.mentions if bot.user else False
-    starts_with_trigger = content.startswith(BOT_TRIGGER)
+    trigger = match_trigger(content)
+    starts_with_trigger = trigger is not None
     is_reply_to_bot = False
 
     if message.reference and message.reference.resolved:
@@ -506,7 +572,7 @@ async def on_message(message):
         return
 
     if starts_with_trigger:
-        content = content[len(BOT_TRIGGER) :].strip()
+        content = content[len(trigger) :].strip()
     elif is_mentioned:
         content = remove_bot_mention(content)
 
