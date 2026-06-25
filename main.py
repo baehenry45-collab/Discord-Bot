@@ -32,9 +32,35 @@ def env_int(name: str, default: int) -> int:
         return default
 
 
+def split_env_list(value: str | None) -> list[str]:
+    if not value:
+        return []
+    return [item.strip() for item in re.split(r"[,\n]", value) if item.strip()]
+
+
+def unique_items(items: list[str]) -> list[str]:
+    result = []
+    for item in items:
+        if item and item not in result:
+            result.append(item)
+    return result
+
+
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
+GEMINI_MODELS = unique_items(
+    [
+        *split_env_list(os.getenv("GEMINI_MODELS")),
+        MODEL,
+        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-flash",
+        "gemini-2.0-flash-lite",
+        "gemini-1.5-flash",
+    ]
+)
 
 AI_BACKEND = os.getenv("AI_BACKEND", "ollama").lower()
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
@@ -65,6 +91,7 @@ MAX_OUTPUT_TOKENS = env_int("MAX_OUTPUT_TOKENS", 180)
 MAX_DEEP_OUTPUT_TOKENS = env_int("MAX_DEEP_OUTPUT_TOKENS", 320)
 QUOTA_COOLDOWN_SECONDS = env_int("GEMINI_QUOTA_COOLDOWN_SECONDS", 60)
 HARD_QUOTA_COOLDOWN_SECONDS = env_int("GEMINI_HARD_QUOTA_COOLDOWN_SECONDS", 3600)
+MODEL_COOLDOWN_SECONDS = env_int("GEMINI_MODEL_COOLDOWN_SECONDS", 300)
 
 APP_LOG_LEVEL = os.getenv("APP_LOG_LEVEL", "WARNING").upper()
 DISCORD_LOG_LEVEL = os.getenv("DISCORD_LOG_LEVEL", "WARNING").upper()
@@ -112,6 +139,8 @@ learned = deque(maxlen=MAX_LEARNED_ITEMS)
 channel_locks = defaultdict(asyncio.Lock)
 quota_blocked_until = 0.0
 gemini_invalid_key_until = 0.0
+gemini_model_cooldowns: dict[str, float] = {}
+last_gemini_model_index = -1
 
 
 def clean_text(text: str, limit: int) -> str:
@@ -253,6 +282,50 @@ def is_invalid_api_key_error(error: Exception) -> bool:
         or "api key not valid" in err
         or "invalid api key" in err
     )
+
+
+def is_missing_model_error(error: Exception) -> bool:
+    err = str(error).lower()
+    return (
+        "404" in err
+        or "not_found" in err
+        or "model not found" in err
+        or "not found for api version" in err
+    )
+
+
+def is_retryable_model_error(error: Exception) -> bool:
+    err = str(error).lower()
+    return any(
+        keyword in err
+        for keyword in (
+            "500",
+            "502",
+            "503",
+            "504",
+            "internal",
+            "unavailable",
+            "deadline",
+            "timeout",
+        )
+    )
+
+
+def pick_gemini_model() -> str | None:
+    global last_gemini_model_index
+
+    now = time.monotonic()
+    for offset in range(1, len(GEMINI_MODELS) + 1):
+        index = (last_gemini_model_index + offset) % len(GEMINI_MODELS)
+        model = GEMINI_MODELS[index]
+        if gemini_model_cooldowns.get(model, 0.0) <= now:
+            last_gemini_model_index = index
+            return model
+    return None
+
+
+def cool_down_model(model: str, seconds: int) -> None:
+    gemini_model_cooldowns[model] = time.monotonic() + max(5, seconds)
 
 
 def is_hard_quota_error(error: Exception) -> bool:
