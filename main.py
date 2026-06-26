@@ -184,7 +184,7 @@ def wants_deeper_answer(text: str) -> bool:
 
 
 def local_quick_reply(text: str) -> str | None:
-    normalized = re.sub(r"\s+", "", text).lower()
+    normalized = re.sub(r"\s+", " ", text).lower()
     if normalized in {"말", "말해", "대답", "야", "ㅎㅇ", "하이", "안녕"}:
         return "어, 나 있어. 뭐 해줄까?"
     if "오프라인" in normalized:
@@ -254,10 +254,7 @@ def to_ollama_messages(history, user_msg: str) -> list[dict[str, str]]:
     return messages
 
 
-# --- AI 응답 (Streaming 지원) ---
-
 async def generate_ollama_stream(payload: dict):
-    """Ollama 스트리밍 요청을 제너레이터로 반환"""
     url = f"{OLLAMA_BASE_URL}/api/chat"
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
@@ -277,7 +274,6 @@ async def generate_ollama_stream(payload: dict):
 
 
 async def ask_ai_stream(channel_id: int, user_msg: str, base_message: discord.Message):
-    """AI 답변을 생성하면서 디스코드 메시지를 실시간으로 수정(타이핑 효과)"""
     global quota_blocked_until, gemini_invalid_key_until
 
     user_msg = clean_text(user_msg, MAX_INPUT_CHARS)
@@ -301,80 +297,9 @@ async def ask_ai_stream(channel_id: int, user_msg: str, base_message: discord.Me
     full_reply = ""
     last_update_time = time.monotonic()
 
-    # --- 1. GEMINI BACKEND STREAM ---
     if backend == "gemini" and client:
         deep = wants_deeper_answer(user_msg)
         max_tokens = MAX_DEEP_OUTPUT_TOKENS if deep else MAX_OUTPUT_TOKENS
         config = types.GenerateContentConfig(
             system_instruction=build_system_prompt(user_msg),
-            temperature=0.72,
-            max_output_tokens=max_tokens,
-        )
-        contents = to_gemini_contents(history, user_msg)
-
-        try:
-            # google-genai는 generate_content_stream 메서드로 스트리밍을 지원합니다.
-            response_stream = await asyncio.to_thread(
-                client.models.generate_content_stream,
-                model=MODEL,
-                contents=contents,
-                config=config
-            )
-            
-            for chunk in response_stream:
-                chunk_text = chunk.text or ""
-                full_reply += chunk_text
-                # 디스코드 Rate Limit 방지를 위해 0.4초마다 화면 갱신
-                if time.monotonic() - last_update_time > 0.4 and full_reply.strip():
-                    await base_message.edit(content=full_reply + " 💬")
-                    last_update_time = time.monotonic()
-                    
-        except Exception as error:
-            if is_invalid_api_key_error(error):
-                gemini_invalid_key_until = time.monotonic() + HARD_QUOTA_COOLDOWN_SECONDS
-            elif is_quota_error(error):
-                quota_blocked_until = time.monotonic() + QUOTA_COOLDOWN_SECONDS
-            logger.exception("Gemini 스트리밍 중 오류 발생")
-            await base_message.edit(content="Gemini 요청 중 문제가 생겨서 답변을 완성하지 못했어.")
-            return
-
-    # --- 2. OLLAMA BACKEND STREAM ---
-    elif backend == "ollama":
-        deep = wants_deeper_answer(user_msg)
-        model = OLLAMA_DEEP_MODEL if deep else OLLAMA_MODEL
-        max_tokens = MAX_DEEP_OUTPUT_TOKENS if deep else MAX_OUTPUT_TOKENS
-        payload = {
-            "model": model,
-            "messages": to_ollama_messages(history, user_msg),
-            "stream": True,
-            "options": {"temperature": 0.72, "num_predict": max_tokens, "num_ctx": 2048},
-        }
-
-        async for chunk_text in generate_ollama_stream(payload):
-            full_reply += chunk_text
-            if time.monotonic() - last_update_time > 0.4 and full_reply.strip():
-                await base_message.edit(content=full_reply + " 💬")
-                last_update_time = time.monotonic()
-
-    else:
-        await base_message.edit(content="설정된 AI 백엔드가 올바르지 않아.")
-        return
-
-    # 최종 메세지 확정 업데이트 및 메모리 저장
-    final_reply = clean_text(full_reply or "답이 비어 있어. 다시 말해줘.", 1900)
-    await base_message.edit(content=final_reply)
-    
-    history.append({"role": "user", "content": user_msg})
-    history.append({"role": "model", "content": final_reply})
-
-
-# --- 디스코드 명령어 섹션 ---
-
-@bot.event
-async def on_ready():
-    logger.info("봇 로그인 완료: %s / 기본 모델: %s", bot.user, MODEL)
-
-
-@bot.command(name=CMD_LEARN)
-async def learn(ctx, *, content: str):
-    content = clean_text(content, MAX_
+            temperature=
