@@ -179,4 +179,5 @@ def save_learned() -> None:
 
 def wants_deeper_answer(text: str) -> bool:
     deep_words = ("설명", "자세", "자세히", "분석", "코드", "수정", "고쳐", "오류", "왜", "어떻게", "방법", "추천")
-    lowered = text.
+    lowered = text.lower()
+    return any(word in lowered for word in deep_words) or len(text) > 180
