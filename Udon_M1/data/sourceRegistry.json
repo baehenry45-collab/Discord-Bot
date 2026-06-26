@@ -1,0 +1,125 @@
+{
+  "version": "2026-06-25",
+  "categories": {
+    "medical": {
+      "label": "의료/건강",
+      "freshnessHours": 168,
+      "sources": [
+        { "name": "WHO", "url": "https://www.who.int/", "kind": "international_health", "licenseNote": "check page terms" },
+        { "name": "KDCA 국가건강정보포털", "url": "https://health.kdca.go.kr/", "kind": "public_health_kr", "licenseNote": "check page terms" },
+        { "name": "NHS Health A to Z", "url": "https://www.nhs.uk/health-a-to-z/", "kind": "public_health_uk", "licenseNote": "check page terms" },
+        { "name": "MedlinePlus", "url": "https://medlineplus.gov/", "kind": "public_health_us", "licenseNote": "public health information; check page terms" },
+        { "name": "식품의약품안전처 의약품안전나라", "url": "https://nedrug.mfds.go.kr/", "kind": "drug_info_kr", "licenseNote": "check page terms" },
+        { "name": "DailyMed", "url": "https://dailymed.nlm.nih.gov/", "kind": "drug_label_us", "licenseNote": "US drug label information; check page terms" }
+      ]
+    },
+    "weather_water": {
+      "label": "날씨/수온/해양",
+      "freshnessHours": 1,
+      "sources": [
+        { "name": "Open-Meteo", "url": "https://open-meteo.com/", "kind": "weather_api", "licenseNote": "check API terms" },
+        { "name": "기상청", "url": "https://www.weather.go.kr/", "kind": "weather_kr", "licenseNote": "check page terms" },
+        { "name": "KHOA", "url": "https://www.khoa.go.kr/", "kind": "ocean_kr", "licenseNote": "check page terms" },
+        { "name": "NOAA", "url": "https://www.noaa.gov/", "kind": "weather_ocean_us", "licenseNote": "US government source; check data terms" }
+      ]
+    },
+    "sports": {
+      "label": "스포츠/경기",
+      "freshnessHours": 1,
+      "sources": [
+        { "name": "FIFA", "url": "https://www.fifa.com/", "kind": "football_official", "licenseNote": "check page terms" },
+        { "name": "AFC", "url": "https://www.the-afc.com/", "kind": "football_official_asia", "licenseNote": "check page terms" },
+        { "name": "K League", "url": "https://www.kleague.com/", "kind": "football_official_kr", "licenseNote": "check page terms" },
+        { "name": "ESPN", "url": "https://www.espn.com/", "kind": "sports_media", "licenseNote": "cite only; do not bulk copy" }
+      ]
+    },
+    "anime_manga": {
+      "label": "애니/만화",
+      "freshnessHours": 720,
+      "sources": [
+        { "name": "Anime official sites", "url": "https://aniplex.co.jp/", "kind": "anime_official", "licenseNote": "check each page terms" },
+        { "name": "TV Tokyo Anime", "url": "https://www.tv-tokyo.co.jp/anime/", "kind": "broadcaster_official", "licenseNote": "check page terms" },
+        { "name": "MyAnimeList", "url": "https://myanimelist.net/", "kind": "anime_database", "licenseNote": "cite only; check ToS" },
+        { "name": "Anime News Network", "url": "https://www.animenewsnetwork.com/", "kind": "anime_news", "licenseNote": "cite only; do not bulk copy" }
+      ]
+    },
+    "food": {
+      "label": "음식/조리/외식",
+      "freshnessHours": 720,
+      "sources": [
+        { "name": "Michelin Guide", "url": "https://guide.michelin.com/", "kind": "restaurant_guide", "licenseNote": "cite only; check ToS" },
+        { "name": "Korean Food Promotion Institute", "url": "https://www.hansik.or.kr/", "kind": "korean_food", "licenseNote": "check page terms" },
+        { "name": "USDA FoodData Central", "url": "https://fdc.nal.usda.gov/", "kind": "nutrition_data", "licenseNote": "US government data; check terms" },
+        { "name": "BBC Good Food", "url": "https://www.bbcgoodfood.com/", "kind": "recipe_media", "licenseNote": "cite only; do not bulk copy" }
+      ]
+    },
+    "game": {
+      "label": "게임",
+      "freshnessHours": 168,
+      "sources": [
+        { "name": "Steam", "url": "https://store.steampowered.com/", "kind": "platform", "licenseNote": "check terms" },
+        { "name": "Nintendo", "url": "https://www.nintendo.com/", "kind": "game_official", "licenseNote": "check terms" },
+        { "name": "PlayStation", "url": "https://www.playstation.com/", "kind": "platform", "licenseNote": "check terms" },
+        { "name": "Xbox", "url": "https://www.xbox.com/", "kind": "platform", "licenseNote": "check terms" }
+      ]
+    },
+    "coding": {
+      "label": "기술/코딩",
+      "freshnessHours": 168,
+      "sources": [
+        { "name": "MDN Web Docs", "url": "https://developer.mozilla.org/", "kind": "web_docs", "licenseNote": "check MDN license" },
+        { "name": "Node.js Docs", "url": "https://nodejs.org/api/", "kind": "runtime_docs", "licenseNote": "check docs license" },
+        { "name": "Discord.js Guide", "url": "https://discordjs.guide/", "kind": "discord_docs", "licenseNote": "check docs license" },
+        { "name": "Discord Developer Docs", "url": "https://discord.com/developers/docs/", "kind": "official_docs", "licenseNote": "check terms" },
+        { "name": "GitHub Docs", "url": "https://docs.github.com/", "kind": "platform_docs", "licenseNote": "check docs license" }
+      ]
+    },
+    "finance": {
+      "label": "금융/시장",
+      "freshnessHours": 1,
+      "sources": [
+        { "name": "SEC EDGAR", "url": "https://www.sec.gov/edgar", "kind": "filings_us", "licenseNote": "US government; check terms" },
+        { "name": "DART", "url": "https://dart.fss.or.kr/", "kind": "filings_kr", "licenseNote": "check terms" },
+        { "name": "한국거래소", "url": "https://www.krx.co.kr/", "kind": "market_kr", "licenseNote": "check terms" },
+        { "name": "NASDAQ", "url": "https://www.nasdaq.com/", "kind": "market_us", "licenseNote": "check terms" }
+      ]
+    },
+    "law": {
+      "label": "법률/규정",
+      "freshnessHours": 168,
+      "sources": [
+        { "name": "국가법령정보센터", "url": "https://www.law.go.kr/", "kind": "law_kr", "licenseNote": "check terms" },
+        { "name": "전자관보", "url": "https://gwanbo.go.kr/", "kind": "gazette_kr", "licenseNote": "check terms" },
+        { "name": "EUR-Lex", "url": "https://eur-lex.europa.eu/", "kind": "law_eu", "licenseNote": "check terms" }
+      ]
+    },
+    "news": {
+      "label": "뉴스/시사",
+      "freshnessHours": 1,
+      "sources": [
+        { "name": "Reuters", "url": "https://www.reuters.com/", "kind": "news_wire", "licenseNote": "cite only; do not bulk copy" },
+        { "name": "AP News", "url": "https://apnews.com/", "kind": "news_wire", "licenseNote": "cite only; do not bulk copy" },
+        { "name": "BBC News", "url": "https://www.bbc.com/news", "kind": "news_public", "licenseNote": "cite only; do not bulk copy" },
+        { "name": "연합뉴스", "url": "https://www.yna.co.kr/", "kind": "news_kr", "licenseNote": "cite only; do not bulk copy" }
+      ]
+    },
+    "server_ops": {
+      "label": "디스코드/서버운영",
+      "freshnessHours": 168,
+      "sources": [
+        { "name": "Discord Developer Docs", "url": "https://discord.com/developers/docs/", "kind": "official_docs", "licenseNote": "check terms" },
+        { "name": "Discord Safety Center", "url": "https://discord.com/safety", "kind": "safety_docs", "licenseNote": "check terms" },
+        { "name": "Discord Support", "url": "https://support.discord.com/", "kind": "support_docs", "licenseNote": "check terms" }
+      ]
+    },
+    "general": {
+      "label": "일반 지식",
+      "freshnessHours": 720,
+      "sources": [
+        { "name": "Wikipedia", "url": "https://www.wikipedia.org/", "kind": "encyclopedia", "licenseNote": "CC BY-SA; cite and respect license" },
+        { "name": "Wikidata", "url": "https://www.wikidata.org/", "kind": "structured_data", "licenseNote": "CC0/CC BY-SA depending content; check page" },
+        { "name": "Encyclopaedia Britannica", "url": "https://www.britannica.com/", "kind": "encyclopedia", "licenseNote": "cite only; do not bulk copy" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,53 @@
+[
+  {
+    "id": "udonai-medical-safety-001",
+    "category": "medical",
+    "title": "의료 답변 기본 안전 원칙",
+    "summary": "증상 안내는 가능하지만 확정 진단, 개인 처방, 응급 상황 과소평가는 피한다. 응급 위험 신호가 있으면 즉시 119/응급실을 안내한다.",
+    "facts": [
+      "흉통, 호흡곤란, 의식 혼란, 갑작스러운 마비, 심한 알레르기 반응은 응급 평가가 필요하다.",
+      "약물은 일반 정보와 복용 전 확인사항을 안내하고, 개인에게 직접 처방하듯 말하지 않는다.",
+      "출처는 WHO, KDCA, NHS, MedlinePlus, 식약처 등 의료 신뢰도가 높은 곳을 우선한다."
+    ],
+    "source": {
+      "name": "우돈AI 의료 안전 정책",
+      "url": "internal://udonai/policy/medical-safety",
+      "license": "owner-defined",
+      "retrievedAt": "2026-06-25"
+    }
+  },
+  {
+    "id": "udonai-source-policy-001",
+    "category": "source_policy",
+    "title": "출처 기반 답변 원칙",
+    "summary": "질문 종류와 출처 종류가 맞아야 한다. 애니 질문에 의료 출처를 붙이거나, 의료 질문에 팬덤 위키를 붙이는 식의 답변은 실패로 본다.",
+    "facts": [
+      "출처 링크는 질문 카테고리와 직접 관련이 있어야 한다.",
+      "현재성이 중요한 질문은 오래된 캐시보다 최신 검색/API 결과를 우선한다.",
+      "출처가 부족하면 모르는 척하지 말고 어떤 자료가 부족한지 말한다."
+    ],
+    "source": {
+      "name": "우돈AI 출처 정책",
+      "url": "internal://udonai/policy/source-matching",
+      "license": "owner-defined",
+      "retrievedAt": "2026-06-25"
+    }
+  },
+  {
+    "id": "udonai-hosting-reality-001",
+    "category": "ai_system",
+    "title": "작은 봇 호스팅에서 가능한 AI 구조",
+    "summary": "작은 봇 호스팅은 초대형 모델 학습/추론에 맞지 않는다. 대신 분류기, 지식베이스, 캐시, 검색, 외부 LLM 어댑터를 조합하면 체감 지능을 크게 높일 수 있다.",
+    "facts": [
+      "초대형 LLM 학습은 대량 GPU, 대규모 데이터 정제, 막대한 비용이 필요하다.",
+      "봇 호스팅에서는 경량 라우터와 RAG 중심 구조가 현실적이다.",
+      "오픈소스 LLM은 별도 서버에 두고 API로 연결하는 방식이 안정적이다."
+    ],
+    "source": {
+      "name": "Udon_M1 설계 메모",
+      "url": "internal://udonai/design/m1",
+      "license": "owner-defined",
+      "retrievedAt": "2026-06-25"
+    }
+  }
+]

@@ -1,0 +1,47 @@
+[
+  {
+    "id": "anime-source-match-001",
+    "question": "우돈아 1994년에 방영된 용자 애니 알려줘",
+    "expectedCategory": "anime_manga",
+    "mustNotSourceNames": ["WHO", "MedlinePlus", "NHS Health A to Z"]
+  },
+  {
+    "id": "medical-safe-001",
+    "question": "기침이 많이 나고 맛이 안 느껴져. 약국 가야 하나?",
+    "expectedCategory": "medical",
+    "mustContain": ["확진이 아니라"]
+  },
+  {
+    "id": "sports-fresh-001",
+    "question": "우돈아 월드컵 경기 현황 알려줘",
+    "expectedCategory": "sports",
+    "mustContain": ["최신"]
+  },
+  {
+    "id": "weather-fresh-001",
+    "question": "우돈아 뉴욕 날씨 알려줘",
+    "expectedCategory": "weather_water",
+    "mustContain": ["최신"]
+  },
+  {
+    "id": "coding-001",
+    "question": "discord.js에서 MessageCreate가 두 번 반응하는 이유가 뭐야?",
+    "expectedCategory": "coding"
+  },
+  {
+    "id": "server-ops-001",
+    "question": "디스코드 서버에서 도배랑 초대링크 감지하려면 어떻게 해야 해?",
+    "expectedCategory": "server_ops"
+  },
+  {
+    "id": "food-001",
+    "question": "우동 국물 맛을 깔끔하게 내는 방법 알려줘",
+    "expectedCategory": "food"
+  },
+  {
+    "id": "finance-001",
+    "question": "오늘 나스닥 현황 알려줘",
+    "expectedCategory": "finance"
+  }
+]
+
