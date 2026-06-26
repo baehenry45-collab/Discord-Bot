@@ -1,0 +1,29 @@
+{
+  "name": "udon_m1",
+  "version": "1.0.0",
+  "description": "Udon_M1 - source-aware AI core for UdonBot",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "demo": "node tools/demo.js",
+    "test": "node tests/smoke.test.js && node tests/api.test.js",
+    "evaluate": "node tools/evaluate.js",
+    "ingest:url": "node tools/ingest-url.js",
+    "hf:export": "node tools/hf-export-dataset.js",
+    "mini:gpt": "node tools/mini-gpt-demo.js",
+    "pack": "node tools/pack-ready.js"
+  },
+  "keywords": [
+    "discord",
+    "ai",
+    "rag",
+    "udonbot",
+    "knowledge-base"
+  ],
+  "license": "UNLICENSED",
+  "private": true
+}
