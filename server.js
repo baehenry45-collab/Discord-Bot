@@ -1,7 +1,8 @@
+require("./bot");
+
 const path = require('path');
 const { createUdonAIApiServer } = require('./src/api/httpServer');
 
-require("./bot");
 
 const rootDir = __dirname;
 const port = Number(process.env.PORT || process.env.UDONAI_PORT || 3000);
