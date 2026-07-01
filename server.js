@@ -1,6 +1,8 @@
 const path = require('path');
 const { createUdonAIApiServer } = require('./src/api/httpServer');
 
+require("./bot");
+
 const rootDir = __dirname;
 const port = Number(process.env.PORT || process.env.UDONAI_PORT || 3000);
 const host = process.env.HOST || process.env.UDONAI_HOST || '0.0.0.0';
@@ -21,4 +23,4 @@ api.listen(port, host).then(() => {
   console.log(`- Knowledge documents: ${status.knowledgeDocuments}`);
   console.log(`- API key: ${process.env.UDONAI_API_KEY ? 'enabled' : 'disabled'}`);
 });
-require("./bot");
+
