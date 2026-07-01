@@ -21,3 +21,4 @@ api.listen(port, host).then(() => {
   console.log(`- Knowledge documents: ${status.knowledgeDocuments}`);
   console.log(`- API key: ${process.env.UDONAI_API_KEY ? 'enabled' : 'disabled'}`);
 });
+require("./bot");
