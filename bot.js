@@ -133,3 +133,189 @@ client.once(Events.ClientReady,()=>{
     console.log("================================");
 
 });
+
+client.on(Events.MessageCreate, async (message) => {
+
+    if (message.author.bot) return;
+
+    const guildId = message.guild?.id || "dm";
+    const config = guildData(guildId);
+
+    // ===========================
+    // /강도
+    // ===========================
+
+    if (message.content.startsWith("/강도 ")) {
+
+        const value = message.content.replace("/강도 ", "").trim();
+
+        const allow = [
+            "순한맛",
+            "일반맛",
+            "매운맛",
+            "핵매운맛"
+        ];
+
+        if (!allow.includes(value)) {
+
+            return message.reply(
+                "사용 가능 : 순한맛 / 일반맛 / 매운맛 / 핵매운맛"
+            );
+
+        }
+
+        config.spice = value;
+
+        saveSettings(settings);
+
+        return message.reply(
+            `🌶️ AI 강도가 **${value}** 로 변경되었습니다.`
+        );
+
+    }
+
+    // ===========================
+    // /말투
+    // ===========================
+
+    if (message.content.startsWith("/말투 ")) {
+
+        const value = message.content.replace("/말투 ", "").trim();
+
+        const allow = [
+            "AI",
+            "귀여움",
+            "떡볶이",
+            "존댓말",
+            "시크"
+        ];
+
+        if (!allow.includes(value)) {
+
+            return message.reply(
+                "사용 가능 : AI / 귀여움 / 떡볶이 / 존댓말 / 시크"
+            );
+
+        }
+
+        config.style = value;
+
+        saveSettings(settings);
+
+        return message.reply(
+            `🎭 말투가 **${value}** 로 변경되었습니다.`
+        );
+
+    }
+
+    // ===========================
+    // /설정
+    // ===========================
+
+    if (message.content === "/설정") {
+
+        const embed = new EmbedBuilder()
+
+            .setTitle("⚙ 현재 AI 설정")
+
+            .setDescription(
+`🌶 강도 : **${config.spice}**
+
+🎭 말투 : **${config.style}**`
+            )
+
+            .setColor(0x00b894);
+
+        return message.reply({
+            embeds:[embed]
+        });
+
+    }
+
+    // ===========================
+    // /상태
+    // ===========================
+
+    if (message.content === "/상태") {
+
+        const status = engine.status();
+
+        const embed = new EmbedBuilder()
+
+            .setTitle("🤖 Udon_M1 상태")
+
+            .addFields(
+
+                {
+                    name:"엔진",
+                    value:status.name,
+                    inline:true
+                },
+
+                {
+                    name:"Provider",
+                    value:status.provider.type,
+                    inline:true
+                },
+
+                {
+                    name:"Knowledge",
+                    value:String(status.knowledgeDocuments),
+                    inline:true
+                }
+
+            )
+
+            .setColor(0x3498db);
+
+        return message.reply({
+            embeds:[embed]
+        });
+
+    }
+
+    // ===========================
+    // 일반 채팅
+    // ===========================
+
+    try {
+
+        const prompt = buildPrompt(
+            config,
+            message.content
+        );
+
+        const result = await engine.answer(prompt,{
+            userId:message.author.id,
+            guildId
+        });
+
+        let text = result.text || "답변을 생성하지 못했습니다.";
+
+        if(text.length > 1900){
+
+            while(text.length){
+
+                await message.channel.send(
+                    text.slice(0,1900)
+                );
+
+                text = text.slice(1900);
+
+            }
+
+        }else{
+
+            await message.reply(text);
+
+        }
+
+    } catch(err){
+
+        console.error(err);
+
+        message.reply("❌ AI 처리 중 오류가 발생했습니다.");
+
+    }
+
+});
