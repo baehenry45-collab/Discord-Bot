@@ -4,12 +4,10 @@ const { Client, GatewayIntentBits } = require("discord.js");
 const { GoogleGenAI } = require("@google/genai");
 const fs = require("fs");
 
-// ===== Gemini 설정 =====
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
-// ===== Discord Client =====
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -18,9 +16,10 @@ const client = new Client({
   ],
 });
 
-// ===== 메모리 저장 =====
-const MEMORY_FILE = "./memory.json";
+const ADMIN_ID = process.env.ADMIN_ID;
+const MEMORY_FILE = "./memory/memory.json";
 
+// ===== memory load/save =====
 function loadMemory() {
   if (!fs.existsSync(MEMORY_FILE)) return {};
   return JSON.parse(fs.readFileSync(MEMORY_FILE, "utf8"));
@@ -32,8 +31,8 @@ function saveMemory(data) {
 
 let memory = loadMemory();
 
-// ===== Gemini 응답 =====
-async function askGemini(userId, text) {
+// ===== Gemini =====
+async function askAI(userId, text) {
   const history = memory[userId]?.history || [];
 
   const result = await ai.models.generateContent({
@@ -44,16 +43,16 @@ async function askGemini(userId, text) {
     ],
   });
 
-  const reply = result.candidates?.[0]?.content?.parts?.[0]?.text
-    || "응답 실패";
+  const reply =
+    result.candidates?.[0]?.content?.parts?.[0]?.text ||
+    "응답 실패";
 
-  // 저장
   memory[userId] = {
     history: [
       ...history,
       { role: "user", parts: [{ text }] },
       { role: "model", parts: [{ text: reply }] }
-    ].slice(-20)
+    ].slice(-30),
   };
 
   saveMemory(memory);
@@ -61,50 +60,83 @@ async function askGemini(userId, text) {
   return reply;
 }
 
-// ===== 메시지 쪼개기 =====
-function splitMessage(text) {
+// ===== split message =====
+function split(text) {
   const limit = 1900;
-  const chunks = [];
+  const arr = [];
   for (let i = 0; i < text.length; i += limit) {
-    chunks.push(text.slice(i, i + limit));
+    arr.push(text.slice(i, i + limit));
   }
-  return chunks;
+  return arr;
 }
 
-// ===== 봇 시작 =====
+// ===== ready =====
 client.once("ready", () => {
   console.log(`로그인 완료: ${client.user.tag}`);
 });
 
-// ===== 메시지 처리 =====
+// ===== message system =====
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
 
+  const id = message.author.id;
   const content = message.content;
 
-  // 도움말
-  if (content === "!도움말") {
-    return message.reply("!안녕 입력하면 Gemini AI가 답합니다 🤖");
+  // =========================
+  // 📌 관리자 명령어
+  // =========================
+  const isAdmin = id === ADMIN_ID;
+
+  if (content === "!shutdown") {
+    if (!isAdmin) return message.reply("권한 없음");
+    await message.reply("봇 종료합니다.");
+    process.exit(0);
   }
 
-  // 초기화
-  if (content === "!초기화") {
-    memory[message.author.id] = { history: [] };
+  if (content === "!resetall") {
+    if (!isAdmin) return message.reply("권한 없음");
+    memory = {};
     saveMemory(memory);
-    return message.reply("메모리 초기화 완료!");
+    return message.reply("전체 메모리 초기화 완료");
   }
 
-  // AI 응답
-  try {
-    const reply = await askGemini(message.author.id, content);
+  if (content.startsWith("!say ")) {
+    if (!isAdmin) return message.reply("권한 없음");
+    const text = content.replace("!say ", "");
+    return message.channel.send(text);
+  }
 
-    const parts = splitMessage(reply);
-    for (const p of parts) {
-      await message.reply(p);
+  // =========================
+  // 📌 일반 명령어
+  // =========================
+  if (content === "!help") {
+    return message.reply(
+      "!help, !reset, !ping, !resetall(관리자)"
+    );
+  }
+
+  if (content === "!ping") {
+    return message.reply("pong 🏓");
+  }
+
+  if (content === "!reset") {
+    memory[id] = { history: [] };
+    saveMemory(memory);
+    return message.reply("네 기억 초기화됨");
+  }
+
+  // =========================
+  // 📌 AI 응답 (기본)
+  // =========================
+  try {
+    const reply = await askAI(id, content);
+
+    for (const part of split(reply)) {
+      await message.reply(part);
     }
   } catch (err) {
     console.error(err);
-    message.reply("오류 발생...");
+    message.reply("AI 오류 발생");
   }
 });
 
