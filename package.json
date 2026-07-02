@@ -1,19 +1,15 @@
 {
-  "name": "tteokbot",
+  "name": "tteokai-bot",
   "version": "1.0.0",
-  "description": "Gemini Discord Bot",
-  "main": "server.js",
+  "main": "bot.js",
   "type": "commonjs",
-  "private": true,
-  "engines": {
-    "node": ">=18"
-  },
   "scripts": {
-    "start": "node server.js"
+    "start": "node bot.js"
   },
   "dependencies": {
-    "@google/genai": "^1.13.0",
-    "discord.js": "^14.21.0",
-    "dotenv": "^17.2.0"
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5",
+    "@google/genai": "^1.0.0",
+    "express": "^4.19.2"
   }
 }
