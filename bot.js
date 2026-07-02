@@ -435,3 +435,179 @@ client.on(Events.MessageCreate, async (message) => {
         });
 
     }
+    // =====================================
+    // /학습
+    // =====================================
+
+    if (message.content.startsWith("/학습 ")) {
+
+        const raw = message.content.replace("/학습 ", "");
+        const split = raw.split("|");
+
+        if (split.length !== 2) {
+
+            return message.reply(
+                "사용법\n/학습 질문 | 답변"
+            );
+
+        }
+
+        const question = split[0].trim();
+        const answer = split[1].trim();
+
+        try {
+
+            engine.teach({
+
+                question,
+
+                answer,
+
+                category: "discord",
+
+                method: "manual"
+
+            });
+
+            return message.reply(
+                "✅ 학습이 완료되었습니다."
+            );
+
+        } catch (err) {
+
+            console.error(err);
+
+            return message.reply(
+                "❌ 학습 실패"
+            );
+
+        }
+
+    }
+
+    // =====================================
+    // 긴 답변 함수
+    // =====================================
+
+    async function sendLong(text) {
+
+        while (text.length > 0) {
+
+            const part = text.substring(0, 1900);
+
+            text = text.substring(1900);
+
+            await message.channel.send(part);
+
+        }
+
+    }
+
+    // =====================================
+    // 봇 멘션
+    // =====================================
+
+    if (message.mentions.has(client.user)) {
+
+        try {
+
+            await message.channel.sendTyping();
+
+            const prompt = buildPrompt(
+
+                config,
+
+                message.content
+                    .replace(`<@${client.user.id}>`, "")
+                    .trim()
+
+            );
+
+            const result = await engine.answer(prompt, {
+
+                userId: message.author.id,
+
+                guildId,
+
+                username: message.author.username,
+
+                mention: true
+
+            });
+
+            const answer = result.text || "답변이 없습니다.";
+
+            if (answer.length > 1900) {
+
+                await sendLong(answer);
+
+            } else {
+
+                await message.reply(answer);
+
+            }
+
+            return;
+
+        } catch (err) {
+
+            console.error(err);
+
+            return message.reply(
+                "❌ 멘션 처리 실패"
+            );
+
+        }
+
+    }
+
+    // =====================================
+    // 일반 AI 답변
+    // =====================================
+
+    try {
+
+        await message.channel.sendTyping();
+
+        const prompt = buildPrompt(
+            config,
+            message.content
+        );
+
+        const result = await engine.answer(prompt, {
+
+            userId: message.author.id,
+
+            guildId,
+
+            username: message.author.username,
+
+            channelId: message.channel.id
+
+        });
+
+        const answer = result.text || "답변을 생성하지 못했습니다.";
+
+        if (answer.length > 1900) {
+
+            await sendLong(answer);
+
+        } else {
+
+            await message.reply(answer);
+
+        }
+
+    } catch (err) {
+
+        console.error(err);
+
+        await message.reply(
+            "❌ AI 처리 중 오류가 발생했습니다."
+        );
+
+    }
+
+});
+
+client.login(process.env.DISCORD_TOKEN);
