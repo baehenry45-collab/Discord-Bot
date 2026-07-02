@@ -218,3 +218,303 @@ function buildPrompt(config,text){
     return prompt+"\n"+text;
 
 }
+
+client.on(Events.MessageCreate, async (message) => {
+
+    if (message.author.bot) return;
+
+    const guildId = message.guild?.id || "dm";
+    const config = guildData(guildId);
+
+    // ==========================
+    // 명령어
+    // ==========================
+
+    if (message.content === "/도움말") {
+
+        const embed = new EmbedBuilder()
+
+            .setTitle("🤖 Udon_M1 명령어")
+
+            .setColor(0x5865F2)
+
+            .setDescription(`
+
+/강도 순한맛
+/강도 일반맛
+/강도 매운맛
+/강도 핵매운맛
+
+/말투 AI
+/말투 귀여움
+/말투 떡볶이
+/말투 존댓말
+/말투 시크
+
+/설정
+/초기화
+/상태
+
+`);
+
+        return message.reply({
+            embeds:[embed]
+        });
+
+    }
+
+    if(message.content.startsWith("/강도 ")){
+
+        const value = message.content.replace("/강도 ","").trim();
+
+        const allow=[
+
+            "순한맛",
+            "일반맛",
+            "매운맛",
+            "핵매운맛"
+
+        ];
+
+        if(!allow.includes(value))
+            return message.reply("순한맛 / 일반맛 / 매운맛 / 핵매운맛");
+
+        config.spice=value;
+
+        saveSettings(settings);
+
+        return message.reply(
+            `🌶️ 강도를 **${value}** 로 변경했습니다.`
+        );
+
+    }
+
+    if(message.content.startsWith("/말투 ")){
+
+        const value=message.content.replace("/말투 ","").trim();
+
+        const allow=[
+
+            "AI",
+            "귀여움",
+            "떡볶이",
+            "존댓말",
+            "시크"
+
+        ];
+
+        if(!allow.includes(value))
+            return message.reply("AI / 귀여움 / 떡볶이 / 존댓말 / 시크");
+
+        config.style=value;
+
+        saveSettings(settings);
+
+        return message.reply(
+            `🎭 말투를 **${value}** 로 변경했습니다.`
+        );
+
+    }
+
+    if(message.content==="/설정"){
+
+        const embed=new EmbedBuilder()
+
+        .setTitle("⚙ 현재 설정")
+
+        .addFields(
+
+            {
+
+                name:"🌶 강도",
+
+                value:config.spice,
+
+                inline:true
+
+            },
+
+            {
+
+                name:"🎭 말투",
+
+                value:config.style,
+
+                inline:true
+
+            },
+
+            {
+
+                name:"😂 유머",
+
+                value:String(config.humor),
+
+                inline:true
+
+            },
+
+            {
+
+                name:"😊 친절",
+
+                value:String(config.kindness),
+
+                inline:true
+
+            },
+
+            {
+
+                name:"🧠 IQ",
+
+                value:String(config.iq),
+
+                inline:true
+
+            }
+
+        )
+
+        .setColor(0x2ecc71);
+
+        return message.reply({
+
+            embeds:[embed]
+
+        });
+
+    }
+
+    if(message.content==="/초기화"){
+
+        settings[guildId]={
+
+            spice:"일반맛",
+
+            style:"AI",
+
+            humor:50,
+
+            kindness:50,
+
+            iq:100,
+
+            memory:true
+
+        };
+
+        saveSettings(settings);
+
+        return message.reply(
+            "✅ 설정을 초기화했습니다."
+        );
+
+    }
+
+    if(message.content==="/상태"){
+
+        const status=engine.status();
+
+        return message.reply({
+
+            embeds:[
+
+                new EmbedBuilder()
+
+                .setTitle("🤖 엔진 상태")
+
+                .addFields(
+
+                    {
+
+                        name:"Engine",
+
+                        value:status.name,
+
+                        inline:true
+
+                    },
+
+                    {
+
+                        name:"Knowledge",
+
+                        value:String(status.knowledgeDocuments),
+
+                        inline:true
+
+                    },
+
+                    {
+
+                        name:"Cases",
+
+                        value:String(status.conversationCases),
+
+                        inline:true
+
+                    }
+
+                )
+
+                .setColor(0x3498db)
+
+            ]
+
+        });
+
+    }
+
+    // ==========================
+    // AI 답변
+    // ==========================
+
+    try{
+
+        await message.channel.sendTyping();
+
+        const prompt=buildPrompt(
+            config,
+            message.content
+        );
+
+        const result=await engine.answer(prompt,{
+
+            userId:message.author.id,
+
+            guildId,
+
+            username:message.author.username
+
+        });
+
+        let text=result.text||"답변을 생성하지 못했습니다.";
+
+        while(text.length){
+
+            const part=text.substring(0,1900);
+
+            text=text.substring(1900);
+
+            if(text.length===0){
+
+                await message.reply(part);
+
+            }else{
+
+                await message.channel.send(part);
+
+            }
+
+        }
+
+    }catch(err){
+
+        console.error(err);
+
+        message.reply("❌ AI 오류가 발생했습니다.");
+
+    }
+
+});
