@@ -131,3 +131,37 @@ client.on("messageCreate", async (message) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
+
+
+async function askAI(id, text) {
+  try {
+    const user = memory[id] || { history: [], style: "기본" };
+    const style = styles[user.style] || styles["기본"];
+
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: `
+${style}
+
+유저: ${text}
+              `
+            }
+          ]
+        }
+      ],
+    });
+
+    return result.candidates?.[0]?.content?.parts?.[0]?.text || "응답 실패";
+  } catch (e) {
+    console.log("Gemini 오류:", e);
+
+    // ⭐ fallback (중요)
+    return "지금 AI 요청이 너무 많아서 잠시 못 쓰는 중이에요 😢";
+  }
+}
