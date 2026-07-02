@@ -319,3 +319,113 @@ client.on(Events.MessageCreate, async (message) => {
     }
 
 });
+
+
+    // ===========================
+    // /초기화
+    // ===========================
+
+    if (message.content === "/초기화") {
+
+        settings[guildId] = {
+            spice: "일반맛",
+            style: "AI"
+        };
+
+        saveSettings(settings);
+
+        return message.reply("✅ AI 설정을 기본값으로 초기화했습니다.");
+
+    }
+
+    // ===========================
+    // /도움말
+    // ===========================
+
+    if (message.content === "/도움말") {
+
+        const embed = new EmbedBuilder()
+
+            .setTitle("📖 Udon_M1 명령어")
+
+            .setColor(0x5865F2)
+
+            .addFields(
+
+                {
+                    name:"🌶 강도",
+                    value:"/강도 순한맛\n/강도 일반맛\n/강도 매운맛\n/강도 핵매운맛"
+                },
+
+                {
+                    name:"🎭 말투",
+                    value:"/말투 AI\n/말투 귀여움\n/말투 떡볶이\n/말투 존댓말\n/말투 시크"
+                },
+
+                {
+                    name:"⚙ 기타",
+                    value:"/설정\n/상태\n/초기화"
+                }
+
+            );
+
+        return message.reply({
+            embeds:[embed]
+        });
+
+    }
+
+    // ===========================
+    // 봇 타이핑 표시
+    // ===========================
+
+    await message.channel.sendTyping();
+
+    // ===========================
+    // 프롬프트 생성
+    // ===========================
+
+    const prompt = buildPrompt(
+        config,
+        message.content
+    );
+
+    // ===========================
+    // AI 호출
+    // ===========================
+
+    const result = await engine.answer(prompt,{
+
+        userId:message.author.id,
+
+        guildId,
+
+        username:message.author.username,
+
+        channelId:message.channel.id
+
+    });
+
+    let answer = result.text || "답변을 생성하지 못했습니다.";
+
+    // ===========================
+    // Discord 2000자 제한
+    // ===========================
+
+    while(answer.length > 0){
+
+        const part = answer.substring(0,1900);
+
+        answer = answer.substring(1900);
+
+        if(answer.length===0){
+
+            await message.reply(part);
+
+        }else{
+
+            await message.channel.send(part);
+
+        }
+
+    }
