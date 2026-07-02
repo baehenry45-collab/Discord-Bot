@@ -4,35 +4,35 @@ import express from "express";
 import { Client, GatewayIntentBits } from "discord.js";
 import { GoogleGenAI } from "@google/genai";
 
-// ======================
-// 🤖 Gemini AI
-// ======================
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
+// =====================
+// 🌐 Express (Railway 유지)
+// =====================
+const app = express();
+app.get("/", (_, res) => res.send("Bot is alive 🚀"));
+app.listen(process.env.PORT || 3000);
 
-// ======================
-// 📦 Discord Client
-// ======================
+// =====================
+// 🤖 Discord
+// =====================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
+    GatewayIntentBits.MessageContent
+  ]
 });
 
-// ======================
-// 🌐 Railway keep-alive
-// ======================
-const app = express();
-app.get("/", (req, res) => res.send("Bot is running 🚀"));
-app.listen(process.env.PORT || 3000);
+// =====================
+// 🤖 Gemini
+// =====================
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY
+});
 
-// ======================
-// 💾 memory system
-// ======================
-const FILE = "./memory/memory.json";
+// =====================
+// 💾 Memory
+// =====================
+const FILE = "./memory.json";
 
 function loadMemory() {
   if (!fs.existsSync(FILE)) return {};
@@ -45,34 +45,32 @@ function saveMemory(data) {
 
 let memory = loadMemory();
 
-// ======================
+// =====================
 // 🎭 말투 시스템
-// ======================
+// =====================
 const styles = {
-  기본: "너는 자연스럽고 친절하게 답하는 AI다.",
-  불닭맛: "매우 텐션 높고 과장된 표현을 쓰는 불닭 스타일 AI다.",
-  차분: "짧고 조용하고 안정적으로 말한다.",
-  존댓말: "항상 정중한 존댓말로 말한다.",
-  광기: "재미있고 약간 미친 텐션으로 말하지만 위험하지 않다."
+  기본: "친절하고 자연스럽게 대답",
+  불닭맛: "매우 텐션 높고 과장되게 말함",
+  차분: "짧고 조용하게 말함",
+  존댓말: "항상 존댓말 사용",
+  광기: "재미있고 약간 미친 느낌"
 };
 
-// ======================
-// 🧠 fallback models (핵심)
-// ======================
+// =====================
+// 🧠 모델 리스트 (fallback)
+// =====================
 const models = [
   "gemini-2.5-flash",
   "gemini-1.5-pro",
   "gemini-1.5-flash"
 ];
 
-// ======================
-// 🤖 AI 호출 (핵심 안정형)
-// ======================
+// =====================
+// 🤖 AI 호출 (안정형)
+// =====================
 async function askAI(id, text) {
   const user = memory[id] || { history: [], style: "기본" };
   const style = styles[user.style] || styles["기본"];
-
-  let lastError;
 
   for (const model of models) {
     try {
@@ -86,40 +84,30 @@ async function askAI(id, text) {
                 text: `
 ${style}
 
-이 규칙을 유지하면서 답변해라.
-
-대화 기록:
-${JSON.stringify(user.history.slice(-6))}
-
 유저: ${text}
                 `
               }
             ]
           }
-        ],
+        ]
       });
 
       const reply =
         result.candidates?.[0]?.content?.parts?.[0]?.text;
 
-      if (reply) {
-        return reply;
-      }
+      if (reply) return reply;
 
     } catch (err) {
-      lastError = err;
-      console.log(`❌ 모델 실패: ${model}`);
+      console.log(`모델 실패: ${model}`);
     }
   }
 
-  console.log("❌ 모든 모델 실패:", lastError);
-
-  return "지금 AI 요청이 너무 많아서 잠시 못 써요 😢";
+  return "지금 AI가 너무 바빠서 잠시 못 써요 😢";
 }
 
-// ======================
+// =====================
 // ✂️ 메시지 분할
-// ======================
+// =====================
 function split(text) {
   const arr = [];
   for (let i = 0; i < text.length; i += 1900) {
@@ -128,25 +116,25 @@ function split(text) {
   return arr;
 }
 
-// ======================
-// 🚀 ready
-// ======================
+// =====================
+// 🚀 Ready
+// =====================
 client.once("ready", () => {
   console.log(`로그인됨: ${client.user.tag}`);
 });
 
-// ======================
-// 💬 message handler
-// ======================
+// =====================
+// 💬 Message
+// =====================
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
 
   const id = message.author.id;
   const content = message.content;
 
-  // ======================
+  // =====================
   // ⚙️ 말투 변경
-  // ======================
+  // =====================
   if (content.startsWith("!말투 ")) {
     const style = content.replace("!말투 ", "");
 
@@ -161,25 +149,18 @@ client.on("messageCreate", async (message) => {
     return message.reply(`말투 변경됨: ${style}`);
   }
 
-  // ======================
+  // =====================
   // 🔄 초기화
-  // ======================
+  // =====================
   if (content === "!reset") {
     memory[id] = { history: [], style: "기본" };
     saveMemory(memory);
-    return message.reply("기억 초기화 완료");
+    return message.reply("초기화 완료");
   }
 
-  // ======================
-  // 📌 도움말
-  // ======================
-  if (content === "!help") {
-    return message.reply("!말투 / !reset / 그냥 채팅하면 AI 응답");
-  }
-
-  // ======================
+  // =====================
   // 🤖 AI 응답
-  // ======================
+  // =====================
   try {
     const reply = await askAI(id, content);
 
@@ -187,9 +168,7 @@ client.on("messageCreate", async (message) => {
       await message.reply(part);
     }
 
-    // ======================
-    // 💾 memory 저장
-    // ======================
+    // 기억 저장
     const user = memory[id] || { history: [], style: "기본" };
 
     memory[id] = {
@@ -209,5 +188,4 @@ client.on("messageCreate", async (message) => {
   }
 });
 
-// ======================
 client.login(process.env.DISCORD_TOKEN);
