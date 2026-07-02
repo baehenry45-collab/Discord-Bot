@@ -233,3 +233,205 @@ client.on(Events.MessageCreate, async (message) => {
     const guildId = message.guild?.id || "dm";
 
     const config = guildData(guildId);
+        // =====================================
+    // /강도
+    // =====================================
+
+    if (message.content.startsWith("/강도 ")) {
+
+        const value = message.content.replace("/강도 ", "").trim();
+
+        const allow = [
+            "순한맛",
+            "일반맛",
+            "매운맛",
+            "핵매운맛"
+        ];
+
+        if (!allow.includes(value)) {
+
+            return message.reply(
+                "사용 가능 : 순한맛 / 일반맛 / 매운맛 / 핵매운맛"
+            );
+
+        }
+
+        config.spice = value;
+
+        saveSettings(settings);
+
+        return message.reply(
+            `🌶️ AI 강도를 **${value}**(으)로 변경했습니다.`
+        );
+
+    }
+
+    // =====================================
+    // /말투
+    // =====================================
+
+    if (message.content.startsWith("/말투 ")) {
+
+        const value = message.content.replace("/말투 ", "").trim();
+
+        const allow = [
+            "AI",
+            "귀여움",
+            "떡볶이",
+            "존댓말",
+            "시크"
+        ];
+
+        if (!allow.includes(value)) {
+
+            return message.reply(
+                "사용 가능 : AI / 귀여움 / 떡볶이 / 존댓말 / 시크"
+            );
+
+        }
+
+        config.style = value;
+
+        saveSettings(settings);
+
+        return message.reply(
+            `🎭 말투를 **${value}**(으)로 변경했습니다.`
+        );
+
+    }
+
+    // =====================================
+    // /설정
+    // =====================================
+
+    if (message.content === "/설정") {
+
+        const embed = new EmbedBuilder()
+
+            .setTitle("⚙ 현재 AI 설정")
+
+            .setDescription(
+
+`🌶️ 강도 : **${config.spice}**
+
+🎭 말투 : **${config.style}**`
+
+            )
+
+            .setColor(0x00b894);
+
+        return message.reply({
+
+            embeds: [embed]
+
+        });
+
+    }
+
+    // =====================================
+    // /초기화
+    // =====================================
+
+    if (message.content === "/초기화") {
+
+        settings[guildId] = {
+
+            spice: "일반맛",
+
+            style: "AI"
+
+        };
+
+        saveSettings(settings);
+
+        return message.reply(
+            "✅ 설정을 기본값으로 초기화했습니다."
+        );
+
+    }
+
+    // =====================================
+    // /상태
+    // =====================================
+
+    if (message.content === "/상태") {
+
+        const status = engine.status();
+
+        const embed = new EmbedBuilder()
+
+            .setTitle("🤖 Udon_M1 상태")
+
+            .addFields(
+
+                {
+                    name: "Engine",
+                    value: status.name,
+                    inline: true
+                },
+
+                {
+                    name: "Knowledge",
+                    value: String(status.knowledgeDocuments),
+                    inline: true
+                },
+
+                {
+                    name: "Cases",
+                    value: String(status.conversationCases),
+                    inline: true
+                }
+
+            )
+
+            .setColor(0x3498db);
+
+        return message.reply({
+
+            embeds: [embed]
+
+        });
+
+    }
+
+    // =====================================
+    // /도움말
+    // =====================================
+
+    if (message.content === "/도움말") {
+
+        const embed = new EmbedBuilder()
+
+            .setTitle("📖 Udon_M1 도움말")
+
+            .setColor(0x5865F2)
+
+            .addFields(
+
+                {
+                    name: "🌶️ 강도",
+                    value:
+"/강도 순한맛\n/강도 일반맛\n/강도 매운맛\n/강도 핵매운맛"
+                },
+
+                {
+                    name: "🎭 말투",
+                    value:
+"/말투 AI\n/말투 귀여움\n/말투 떡볶이\n/말투 존댓말\n/말투 시크"
+                },
+
+                {
+                    name: "⚙ 기타",
+                    value:
+"/설정\n/상태\n/초기화\n/학습 질문 | 답변"
+                }
+
+            );
+
+        return message.reply({
+
+            embeds: [embed]
+
+        });
+
+    }
