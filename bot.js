@@ -429,3 +429,93 @@ client.on(Events.MessageCreate, async (message) => {
         }
 
     }
+
+
+    // ===========================
+    // /학습
+    // ===========================
+
+    if (message.content.startsWith("/학습 ")) {
+
+        const data = message.content.replace("/학습 ","");
+
+        const split = data.split("|");
+
+        if(split.length !== 2){
+
+            return message.reply(
+                "사용법 : /학습 질문 | 답변"
+            );
+
+        }
+
+        const question = split[0].trim();
+        const answer = split[1].trim();
+
+        try{
+
+            engine.teach({
+
+                question,
+                answer,
+                category:"discord",
+                method:"manual"
+
+            });
+
+            return message.reply(
+                "✅ 학습이 완료되었습니다."
+            );
+
+        }catch(err){
+
+            console.error(err);
+
+            return message.reply(
+                "❌ 학습 실패"
+            );
+
+        }
+
+    }
+
+    // ===========================
+    // 멘션으로 호출
+    // ===========================
+
+    if(message.mentions.has(client.user)){
+
+        const prompt = buildPrompt(
+            config,
+            message.content.replace(
+                `<@${client.user.id}>`,
+                ""
+            )
+        );
+
+        try{
+
+            await message.channel.sendTyping();
+
+            const result = await engine.answer(prompt,{
+
+                userId:message.author.id,
+                guildId
+
+            });
+
+            return message.reply(result.text);
+
+        }catch(err){
+
+            console.error(err);
+
+            return message.reply(
+                "❌ AI 오류"
+            );
+
+        }
+
+    }
+
+});
