@@ -1,32 +1,17 @@
 {
   "name": "udon_m1",
   "version": "1.1.1",
-  "description": "Udon_M1 - lightweight conversation and learning engine",
-  "main": "src/index.js",
+  "description": "Udon_M1",
+  "main": "server.js",
   "type": "commonjs",
   "engines": {
     "node": ">=18"
   },
   "scripts": {
-    "start": "node server.js",
-    "test": "node tests/smoke.test.js && node tests/api.test.js",
-    "demo": "node tools/demo.js",
-    "mini:gpt": "node tools/mini-gpt-demo.js",
-    "pack": "node tools/pack-ready.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "discord.js": "^14.21.0",
-    "dotenv": "^17.2.1"
-  },
-  "keywords": [
-    "ai",
-    "conversation",
-    "learning",
-    "weather"
-  ],
-  "license": "UNLICENSED",
-  "private": true
-}
-"dependencies": {
-  "discord.js": "^14.21.0"
+    "dotenv": "^17.2.0"
+  }
 }
