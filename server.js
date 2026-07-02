@@ -2,7 +2,7 @@ const express = require("express");
 const app = express();
 
 app.get("/", (req, res) => {
-  res.send("TteokAI Bot Running 🚀");
+  res.send("TteokAI is running 🚀");
 });
 
 const PORT = process.env.PORT || 3000;
